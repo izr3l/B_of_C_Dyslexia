@@ -204,8 +204,8 @@ def main():
         for i, feature in enumerate(feature_names):
             with cols[i % 3]:
                 # Assuming standard scaler, we input raw values and scale them later
-                # We try to guess ranges based on column name or just generic inputs
-                val = st.number_input(f"{feature}", value=0.0)
+                # Using slider for more intuitive input
+                val = st.slider(f"{feature}", min_value=0.0, max_value=100.0, value=50.0, step=0.1)
                 input_data[feature] = val
         
         if st.button("Predict"):
