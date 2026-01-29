@@ -14,22 +14,10 @@ def load_data(filepath):
         return None
 
 def clean_data(df):
-    """
-    Cleans the dataset:
-    - Handles missing values (if any)
-    - Removes outliers (negative times)
-    - Encodes categorical variables
-    """
-    # Remove rows with negative values in time-related columns if they exist
-    # Assuming columns like 'Clicks', 'Hits', 'Score' are numeric.
-    # We will filter out obvious bad data if known.
-    
+  
     # Generic cleaning: drop duplicates
     df = df.drop_duplicates()
     
-    # Handle specific known issues (from plan: negative times)
-    # Identifying time columns based on context or names if possible.
-    # For now, we will just ensure non-negativity on numeric columns where appropriate.
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     for col in numeric_cols:
          df = df[df[col] >= 0]
@@ -42,28 +30,22 @@ def clean_data(df):
     
     # Ensure Target 'Dyslexia' is properly formatted
     if 'Dyslexia' in df.columns:
-        # If it's Yes/No, map to 1/0
         if df['Dyslexia'].dtype == 'object':
             df['Dyslexia'] = df['Dyslexia'].map({'Yes': 1, 'No': 0})
+
+    for col in df.columns:
+        if 'Accuracy' in col or 'Missrate' in col:
+            df[col] = df[col].apply(lambda x: x / 1000.0 if x > 1.0 else x)
             
     return df
 
 def preprocess_data(df, target_column='Dyslexia'):
-    """
-    Preprocesses the data for training:
-    - Separates X and y
-    - Scales features
-    - Splits into train/test
-    """
     if target_column not in df.columns:
         raise ValueError(f"Target column '{target_column}' not found in dataset.")
         
     X = df.drop(columns=[target_column])
     y = df[target_column]
     
-    # Identify non-numeric columns for OneHotEncoding if any remain?
-    # For this dataset description, it seems mostly numeric + Gender.
-    # We'll just select numeric types to be safe for scaling.
     X_numeric = X.select_dtypes(include=[np.number])
     
     # Handle any remaining NaNs
@@ -71,8 +53,26 @@ def preprocess_data(df, target_column='Dyslexia'):
     
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X_numeric)
-    X_scaled_df = pd.DataFrame(X_scaled, columns=X_numeric.columns)
+    # CRITICAL FIX: explicit index assignment to valid misalignment with y
+    X_scaled_df = pd.DataFrame(X_scaled, columns=X_numeric.columns, index=X_numeric.index)
     
-    X_train, X_test, y_train, y_test = train_test_split(X_scaled_df, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled_df, y, test_size=0.2, random_state=42, stratify=y)
+    
+    # improved balancing using SMOTE (Synthetic Minority Over-sampling Technique)
+    try:
+        from imblearn.over_sampling import SMOTE
+        smote = SMOTE(random_state=42)
+        X_train, y_train = smote.fit_resample(X_train, y_train)
+    except ImportError:
+        # Fallback to manual oversampling if imblearn is somehow missing (though we installed it)
+        train_df = pd.concat([X_train, y_train], axis=1)
+        df_majority = train_df[train_df[target_column] == 0]
+        df_minority = train_df[train_df[target_column] == 1]
+        
+        if len(df_minority) > 0:
+            df_minority_upsampled = df_minority.sample(len(df_majority), replace=True, random_state=42)
+            df_balanced = pd.concat([df_majority, df_minority_upsampled])
+            X_train = df_balanced.drop(columns=[target_column])
+            y_train = df_balanced[target_column]
     
     return X_train, X_test, y_train, y_test, scaler, X_numeric.columns

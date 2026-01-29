@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.cluster import KMeans
 from sklearn.neural_network import MLPClassifier
 from sklearn.linear_model import LinearRegression
@@ -11,35 +12,27 @@ class ModelTrainer:
     def __init__(self):
         pass
 
-    def train_knn(self, X_train, y_train, k=5):
-        model = KNeighborsClassifier(n_neighbors=k)
-        model.fit(X_train, y_train)
-        return model
-
     def train_svm(self, X_train, y_train, C=1.0, kernel='rbf'):
-        model = SVC(C=C, kernel=kernel, probability=True, random_state=42)
+        # Ensuring class_weight='balanced' and probability=True for reliable risk scores
+        model = SVC(
+            C=C, 
+            kernel=kernel, 
+            probability=True, 
+            class_weight='balanced', 
+            random_state=42,
+            gamma='scale' # Default but explicit
+        )
         model.fit(X_train, y_train)
         return model
 
-    def train_decision_tree(self, X_train, y_train, max_depth=None, criterion='gini'):
-        model = DecisionTreeClassifier(max_depth=max_depth, criterion=criterion, random_state=42)
-        model.fit(X_train, y_train)
-        return model
-
-    def train_kmeans(self, X_train, n_clusters=2):
-        # Unsupervised, so no y_train
-        model = KMeans(n_clusters=n_clusters, random_state=42)
-        model.fit(X_train)
-        return model
-
-    def train_ann(self, X_train, y_train, hidden_layer_sizes=(100,), activation='relu', max_iter=500):
-        model = MLPClassifier(hidden_layer_sizes=hidden_layer_sizes, activation=activation, max_iter=max_iter, random_state=42)
-        model.fit(X_train, y_train)
-        return model
-
-    def train_linear_regression(self, X_train, y_train):
-        # Treating Linear Regression as storage for logic
-        model = LinearRegression()
+    def train_random_forest(self, X_train, y_train, n_estimators=100, max_depth=10):
+        """Random Forest provides better probability estimates than single Decision Tree."""
+        model = RandomForestClassifier(
+            n_estimators=n_estimators, 
+            max_depth=max_depth, 
+            class_weight='balanced',
+            random_state=42
+        )
         model.fit(X_train, y_train)
         return model
 

@@ -6,14 +6,14 @@ This project is a Machine Learning application designed for the early detection 
 ## Features
 - **Project Info**: Overview of the project goals, approach, and team members.
 - **Exploratory Data Analysis (EDA)**: Interactive visualizations to understand data distributions, correlations, and target variable balance.
-- **Model Playground**: interactive environment to train and test different machine learning models (Decision Tree, SVM, KNN, ANN/MLP, Linear Regression, K-Means) with adjustable hyperparameters.
-- **Model Comparison**: Automatically train and compare all implemented models to identify the best performer based on Accuracy, Precision, Recall, and F1-Score.
-- **Live Prediction**: Input new behavioral data points to get a real-time risk assessment (Dyslexic vs. Non-Dyslexic).
+- **Model Playground**: Interactive environment to train and test **Random Forest** and **SVM** models with adjustable hyperparameters.
+- **Model Comparison**: Automatically train and compare the selected models (Random Forest vs. SVM) to identify the best performer.
+- **Live Prediction**: Input new behavioral data points to get a real-time risk assessment (Dyslexic vs. Non-Dyslexic). The system automatically handles features like total clicks.
 
 ## Tech Stack
 - **Language**: Python
 - **Frontend**: Streamlit
-- **Data Processing**: Pandas, NumPy
+- **Data Processing**: Pandas, NumPy, **Imbalanced-learn (SMOTE)**
 - **Machine Learning**: Scikit-learn
 - **Visualization**: Plotly, Matplotlib, Seaborn
 
@@ -42,7 +42,7 @@ This project is a Machine Learning application designed for the early detection 
 
 ## Usage
 
-1.  Ensure the dataset `dyslexia_data.csv` is present in the root directory.
+1.  Ensure the dataset `dyslexia_synthetic_4237.csv` is present in the root directory.
 2.  Run the Streamlit application:
     ```bash
     streamlit run app.py
@@ -54,7 +54,7 @@ This project is a Machine Learning application designed for the early detection 
 ```
 Dyslexia/
 ├── app.py                  # Main Streamlit application entry point
-├── dyslexia_data.csv       # Dataset file (required)
+├── dyslexia_synthetic_4237.csv # Dataset file (required)
 ├── requirements.txt        # Python dependencies
 ├── run_app.bat             # Windows batch script to run the app
 ├── README.md               # Project documentation

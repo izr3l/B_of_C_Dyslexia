@@ -5,18 +5,18 @@ import os
 from src import data_preprocessing, visualization, model_training
 
 # Check if data exists
-DATA_PATH = os.path.join(os.path.dirname(__file__), 'dyslexia_data.csv')
+DATA_PATH = os.path.join(os.path.dirname(__file__), 'dyslexia_synthetic_4237.csv')
 
 def main():
     st.set_page_config(page_title="Dyslexia Detection AI", layout="wide", page_icon="🧠")
     
-    st.title("🧠 Dyslexia Detection using Machine Learning")
+    st.title("Dyslexia Detection using Machine Learning")
     st.markdown("### Early Detection Using Behavioral Data")
 
     # Load Data
     df = data_preprocessing.load_data(DATA_PATH)
     if df is None:
-        st.error(f"Dataset not found at {DATA_PATH}. Please ensure 'dyslexia_data.csv' is in the project root.")
+        st.error(f"Dataset not found at {DATA_PATH}. Please ensure 'dyslexia_synthetic_4237.csv' is in the project root.")
         return
 
     # Sidebar for navigation
@@ -27,17 +27,19 @@ def main():
     df_clean = data_preprocessing.clean_data(df)
     
     # Store processed data in session state to avoid re-running widely
-    if 'preprocessed_data' not in st.session_state:
+    # Store processed data in session state to avoid re-running widely
+    # Updated key to v3 to force reload with new dataset
+    if 'preprocessed_data_v3' not in st.session_state:
         X_train, X_test, y_train, y_test, scaler, feature_names = data_preprocessing.preprocess_data(df_clean)
-        st.session_state['preprocessed_data'] = (X_train, X_test, y_train, y_test, scaler, feature_names)
+        st.session_state['preprocessed_data_v3'] = (X_train, X_test, y_train, y_test, scaler, feature_names)
     
-    X_train, X_test, y_train, y_test, scaler, feature_names = st.session_state['preprocessed_data']
+    X_train, X_test, y_train, y_test, scaler, feature_names = st.session_state['preprocessed_data_v3']
     trainer = model_training.ModelTrainer()
 
     # --- TAB 1: Project Info ---
     if options == "Project Info":
         st.header("Project Overview")
-        with st.expander("📝 Project Description", expanded=True):
+        with st.expander("Project Description", expanded=True):
             st.markdown("""
             **Goal**: Detect the likelihood of dyslexia using behavioral metrics (reading speed, accuracy, reaction time).
             
@@ -79,19 +81,18 @@ def main():
 
     # --- TAB 3: Model Playground ---
     elif options == "Model Playground":
-        st.header("🛠 Train & Test Models")
+        st.subheader("Train & Test Models")
         st.markdown("Adjust parameters and evaluate performance in real-time.")
 
-        model_choice = st.selectbox("Select Model", ["KNN", "SVM", "Decision Tree", "Neural Network (MLP)", "Linear Regression", "K-Means"])
+        model_choice = st.selectbox("Select Model", ["Random Forest", "SVM"])
         
         metrics = None
-        model = None
         
-        if model_choice == "Decision Tree":
-            depth = st.slider("Max Depth", 1, 20, 5)
-            criterion = st.selectbox("Criterion", ["gini", "entropy"])
-            if st.button("Train Decision Tree"):
-                model = trainer.train_decision_tree(X_train, y_train, max_depth=depth, criterion=criterion)
+        if model_choice == "Random Forest":
+            n_estimators = st.slider("Numbers of Trees", 10, 200, 100)
+            max_depth = st.slider("Max Depth", 1, 20, 10)
+            if st.button("Train Random Forest"):
+                model = trainer.train_random_forest(X_train, y_train, n_estimators=n_estimators, max_depth=max_depth)
                 metrics = trainer.evaluate_model(model, X_test, y_test, model_type='classifier')
 
         elif model_choice == "SVM":
@@ -100,43 +101,6 @@ def main():
             if st.button("Train SVM"):
                 model = trainer.train_svm(X_train, y_train, C=C, kernel=kernel)
                 metrics = trainer.evaluate_model(model, X_test, y_test, model_type='classifier')
-
-        elif model_choice == "KNN":
-            k = st.slider("K (Neighbors)", 1, 20, 5)
-            if st.button("Train KNN"):
-                model = trainer.train_knn(X_train, y_train, k=k)
-                metrics = trainer.evaluate_model(model, X_test, y_test, model_type='classifier')
-
-        elif model_choice == "Neural Network (MLP)":
-            hidden_layers = st.selectbox("Hidden Layer Config", [(50,), (100,), (100, 50), (50, 50, 50)])
-            max_iter = st.number_input("Max Iterations", 200, 1000, 500)
-            if st.button("Train ANN"):
-                model = trainer.train_ann(X_train, y_train, hidden_layer_sizes=hidden_layers, max_iter=max_iter)
-                metrics = trainer.evaluate_model(model, X_test, y_test, model_type='classifier')
-
-        elif model_choice == "Linear Regression":
-            st.info("Linear Regression output will be thresholded at 0.5 for classification.")
-            if st.button("Train Linear Regression"):
-                model = trainer.train_linear_regression(X_train, y_train)
-                metrics = trainer.evaluate_model(model, X_test, y_test, model_type='regression')
-
-        elif model_choice == "K-Means":
-            n_clusters = st.slider("Number of Clusters", 2, 5, 2)
-            if st.button("Run K-Means"):
-                model = trainer.train_kmeans(X_train, n_clusters=n_clusters)
-                st.success("K-Means clustering complete.")
-                
-                # Visualize Cluster Separation (using first 2 valid features or PCA if we had it)
-                # For simplicity, we create a scatter plot of first two features colored by cluster label
-                labels = model.predict(X_test)
-                
-                # Create a temporary df for plotting
-                plot_df = X_test.iloc[:, :2].copy()
-                plot_df['Cluster'] = labels.astype(str)
-                fig = visualization.plot_scatter(plot_df, plot_df.columns[0], plot_df.columns[1], 'Cluster')
-                st.plotly_chart(fig)
-                
-                st.info("Note: K-Means is unsupervised. Colors represent discovered clusters, not necessarily Dyslexia labels.")
 
         if metrics:
             st.success("Training Complete!")
@@ -151,40 +115,22 @@ def main():
 
     # --- TAB 4: Comparison ---
     elif options == "Model Comparison":
-        st.header("🏆 Model Leaderboard")
+        st.header("Model Leaderboard")
         if st.button("Train & Compare All Models"):
             with st.spinner("Training all models..."):
                 results = []
                 
-                # KNN
-                m_knn = trainer.train_knn(X_train, y_train)
-                res_knn = trainer.evaluate_model(m_knn, X_test, y_test)
-                res_knn['Model'] = "KNN"
-                results.append(res_knn)
+                # Random Forest
+                m_rf = trainer.train_random_forest(X_train, y_train)
+                res_rf = trainer.evaluate_model(m_rf, X_test, y_test)
+                res_rf['Model'] = "Random Forest"
+                results.append(res_rf)
                 
                 # SVM
                 m_svm = trainer.train_svm(X_train, y_train)
                 res_svm = trainer.evaluate_model(m_svm, X_test, y_test)
                 res_svm['Model'] = "SVM"
                 results.append(res_svm)
-                
-                # DT
-                m_dt = trainer.train_decision_tree(X_train, y_train)
-                res_dt = trainer.evaluate_model(m_dt, X_test, y_test)
-                res_dt['Model'] = "Decision Tree"
-                results.append(res_dt)
-                
-                # ANN
-                m_ann = trainer.train_ann(X_train, y_train)
-                res_ann = trainer.evaluate_model(m_ann, X_test, y_test)
-                res_ann['Model'] = "ANN (MLP)"
-                results.append(res_ann)
-
-                # Linear Regression
-                m_lr = trainer.train_linear_regression(X_train, y_train)
-                res_lr = trainer.evaluate_model(m_lr, X_test, y_test, model_type='regression')
-                res_lr['Model'] = "Linear Reg"
-                results.append(res_lr)
                 
                 results_df = pd.DataFrame(results)[['Model', 'Accuracy', 'Precision', 'Recall', 'F1']]
                 st.session_state['comparison_results'] = results_df
@@ -195,39 +141,174 @@ def main():
 
     # --- TAB 5: Live Prediction ---
     elif options == "Live Prediction":
-        st.header("🔮 Make a Prediction")
-        st.markdown("Enter values to predict if a user is at risk.")
+        st.header("Make a Prediction")
+        st.markdown("Enter behavioral test values to predict dyslexia risk.")
         
-        # We need to collect inputs corresponding to X_train columns
+        # Get the original (unscaled) data to determine proper min/max ranges
+        df_for_ranges = df_clean.drop(columns=['Dyslexia'])
+        
+        # Collect inputs with proper ranges based on actual data
         input_data = {}
-        cols = st.columns(3)
-        for i, feature in enumerate(feature_names):
-            with cols[i % 3]:
-                # Assuming standard scaler, we input raw values and scale them later
-                # Using slider for more intuitive input
-                val = st.slider(f"{feature}", min_value=0.0, max_value=100.0, value=50.0, step=0.1)
-                input_data[feature] = val
         
-        if st.button("Predict"):
-            # Create DF
-            input_df = pd.DataFrame([input_data])
-            # Scale
+        # Organize features by category for better UX
+        st.subheader("Demographics")
+        demo_cols = st.columns(2)
+        with demo_cols[0]:
+            if 'Gender' in feature_names:
+                gender = st.selectbox("Gender", options=[0, 1], format_func=lambda x: "Female" if x == 0 else "Male")
+                input_data['Gender'] = gender
+        with demo_cols[1]:
+            if 'Age' in feature_names:
+                age_min = int(df_for_ranges['Age'].min())
+                age_max = int(df_for_ranges['Age'].max())
+                age = st.slider("Age", min_value=age_min, max_value=age_max, value=(age_min + age_max) // 2)
+                input_data['Age'] = age
+        
+        # Test metrics - organized by test number
+        test_numbers = ['4', '12', '26', '27']
+        test_descriptions = {
+            '4': "Test 4 - Basic Attention Task",
+            '12': "Test 12 - Memory Task", 
+            '26': "Test 26 - Reading Recognition",
+            '27': "Test 27 - Complex Processing"
+        }
+        
+        for test_num in test_numbers:
+            # Check if this test exists in our dataset
+            if any(f.endswith(test_num) for f in feature_names):
+                st.subheader(f"{test_descriptions.get(test_num, f'Test {test_num}')}")
+                cols = st.columns(3)
+                
+                with cols[0]:
+                    # Using averages from the dataset as defaults (e.g., ~4)
+                    hits = st.slider(f"Hits ({test_num})", 0, 100, 4, key=f"h_{test_num}")
+                
+                with cols[1]:
+                    # Using averages from the dataset as defaults (e.g., ~2)
+                    misses = st.slider(f"Misses ({test_num})", 0, 100, 2, key=f"m_{test_num}")
+                
+                # Clicks calculated automatically (User requested: Total click = Hits + Misses)
+                clicks = hits + misses
+                
+                with cols[2]:
+                    # Display the calculated total clicks
+                    st.metric(f"Total Clicks ({test_num})", clicks)
+                
+                # Automatic Calculations
+                score = hits # In this dataset, Score is identity with Hits
+                accuracy = hits / clicks if clicks > 0 else 0.0
+                missrate = misses / clicks if clicks > 0 else 0.0
+                
+                # Store all required features for the model
+                input_data[f"Hits{test_num}"] = hits
+                input_data[f"Misses{test_num}"] = misses
+                input_data[f"Clicks{test_num}"] = clicks
+                input_data[f"Score{test_num}"] = score
+                input_data[f"Accuracy{test_num}"] = accuracy
+                input_data[f"Missrate{test_num}"] = missrate
+                
+                # Optional: Show the calculated values to the user
+                st.caption(f"Calculated: Accuracy={accuracy:.2f}, Missrate={missrate:.2f}")
+        
+        st.markdown("---")
+        
+        # Model selection
+        st.subheader("Select Prediction Model")
+        model_options = {
+            "Random Forest": "Balanced & robust ensemble (Recommended)",
+            "SVM": "Good for complex decision boundaries"
+        }
+        
+        selected_model = st.selectbox(
+            "Choose Model",
+            options=list(model_options.keys()),
+            help="Different models may give different predictions"
+        )
+        st.caption(f"ℹ️ {model_options[selected_model]}")
+        
+        # Train and cache models (only train if not already cached)
+        model_cache_key = f'prediction_model_{selected_model}'
+        
+        if model_cache_key not in st.session_state:
+            with st.spinner(f"Training {selected_model}..."):
+                if selected_model == "Random Forest":
+                    st.session_state[model_cache_key] = trainer.train_random_forest(X_train, y_train)
+                elif selected_model == "SVM":
+                    # Using higher C to penalize misclassifications on minority class
+                    st.session_state[model_cache_key] = trainer.train_svm(X_train, y_train, C=10.0, kernel='rbf')
+        
+        # Debug / Info Expander
+        with st.expander("Prediction Technical Details"):
+            st.write(f"**Model Type**: {selected_model}")
+            st.write(f"**Total Features**: {len(feature_names)}")
+            st.json(input_data)
+        
+        if st.button("Predict Risk", type="primary"):
+            # Create DataFrame with features in correct order
+            input_df = pd.DataFrame([input_data])[list(feature_names)]
+            
+            # Scale using the fitted scaler
             input_scaled = scaler.transform(input_df)
             
-            # Use a default robust model for prediction (e.g., SVM or Decision Tree)
-            # In a real scenario, we'd select the "Best" saved model.
-            # Here we just re-train a quick DT for demonstration or use one from session if saved.
-            # Let's train a quick Decision Tree on full data for best simple performance
-            model = trainer.train_decision_tree(X_train, y_train) 
+            # Use the selected cached model
+            model = st.session_state[model_cache_key]
             
             prediction = model.predict(input_scaled)[0]
             prob = model.predict_proba(input_scaled)[0][1]
             
             st.markdown("---")
-            if prediction == 1:
-                st.error(f"**Prediction: High Risk of Dyslexia** (Probability: {prob:.2f})")
+            st.subheader("📊 Prediction Results")
+            
+            # Visual risk indicator
+            # The model is trained to spot Dyslexia=1. 
+            # A higher probability means higher likelihood of Dyslexia.
+            risk_percentage = prob * 100
+            
+            # Using broader thresholds for 'Moderate' to catch edge cases
+            if risk_percentage < 30:
+                risk_level = "Low"
+                risk_color = "🟢"
+            elif risk_percentage < 70:
+                risk_level = "Moderate"
+                risk_color = "🟡"
             else:
-                st.success(f"**Prediction: Low Risk** (Probability: {prob:.2f})")
+                risk_level = "High"
+                risk_color = "🔴"
+            
+            # Display risk gauge
+            st.markdown(f"### {risk_color} Risk Level: **{risk_level}**")
+            st.progress(prob, text=f"Dyslexia Probability: {risk_percentage:.1f}%")
+            
+            # Detailed breakdown
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Probability", f"{risk_percentage:.1f}%")
+            with col2:
+                st.metric("Risk Category", risk_level)
+            with col3:
+                # Prediction is 1 if prob > 0.5 usually, but we can be more sensitive
+                pred_label = "At Risk" if prob > 0.5 else "Not At Risk"
+                st.metric("Prediction", pred_label)
+            
+            st.markdown("---")
+            
+            # Interpretation
+            if prediction == 1:
+                st.error("⚠️ **Result: Indicators suggest potential dyslexia risk**")
+                st.markdown("""
+                **Recommended Next Steps:**
+                - Consult with an educational psychologist
+                - Consider formal dyslexia assessment
+                - Discuss findings with teachers/educators
+                """)
+            else:
+                st.success("✅ **Result: No significant dyslexia indicators detected**")
+                st.markdown("""
+                **Note:** This screening did not detect strong dyslexia markers based on the provided metrics.
+                If concerns persist, professional evaluation is still recommended.
+                """)
+            
+            st.caption("⚕️ *Disclaimer: This AI tool is for preliminary screening only and should not replace professional medical or educational diagnosis.*")
 
 if __name__ == "__main__":
     main()
