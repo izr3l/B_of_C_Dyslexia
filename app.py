@@ -41,11 +41,11 @@ def main():
         st.header("Project Overview")
         with st.expander("Project Description", expanded=True):
             st.markdown("""
-            **Goal**: Detect the likelihood of dyslexia using behavioral metrics (reading speed, accuracy, reaction time).
+            **Goal**: Detect the likelihood of dyslexia using behavioral metrics (Complex Processing, Reading Recognition, Memory Task, Basic Attention Task).
             
             **Why?**: Dyslexia is often undiagnosed. AI can provide a low-cost, accessible screening tool.
             
-            **Approach**: Supervised Learning (Classification) + Unsupervised Learning (Cluster Analysis).
+            **Approach**: Supervised Learning (Classification)
             """)
         
         st.subheader("Team Members")
